@@ -1,151 +1,100 @@
-# Fractal Image Generation using OpenMP
+# Fractal Image Generation
 
-## Initial Code Profiling
+## Team Members
 
-Serial running times (in milliseconds):
+- [Cristian Cristea](@cristian.cristea) (TBB)
+- [Antonio Lăzărescu](@antonio.lazarescu) (CUDA)
+- [Franciso Câmara](@francisco.bessa) (OpenMP)
+- [Mihaela Țigănoiu](@maria.tiganoiu) (pthreads)
 
-- _Mandelbrot:_ 25 714  ms
-- _Julia:_ 3 999 ms
-- _Tricorn:_ 6 628 ms
-- _Cosine:_ 843 395 ms
----
+## Implementations
 
-## Chunk size analysis
+- [Serial](Serial/README.md)
+- [TBB](TBB/README.md)
+- [CUDA](CUDA/README.md)
+- [OpenMP](OpenMP/README.md)
+- [pthreads](pthreads/README.md)
 
-- All these results were obtained from the grid computer dgxh100 on a 6000×4000 images for 2000 iterations with 4 threads
+## Dependencies
 
-### Mandelbrot
+We use [OpenCV](https://github.com/opencv/opencv) for writing the images to disk. 
 
-<details>
+To install it on _Ubuntu_, run:
 
-<summary>Click for raw time data</summary>
+```bash
+sudo apt-get install libopencv-dev
+```
 
-| Schedule |      1 |      2 |     4 |     6 |     8 |    10 |    12 |    14 |    16 |    18 |    20 |    22 |    24 |    26 |    28 |    32 |   36 |   40 |   44 |   48 |   52 |   56 |   60 |   64 |   80 |   96 |  112 |  128 |  144 |  160 |  176 |  192 |  208 |
-|----------|------------|------------|-----------|-----------|-----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|
-| dynamic | 9 559 |	9 568 |	9 559 |	9 568 |	9 560 |	9 560 |	9 562 |	9 574 |	9 589 |	9 564 |	9 564 | 9 582 |	9 565 |	9 588|	9 562 |	9 571 |	9 599 |	9 564 |	9 564 |	9 592 |	9 563 |	9 590 |	9 594 |	9 598 |	9 738 |	9 657	| 9 673 |	9 633 |	10 035 |	10 231 |	9 695 |	9 939 |	10 452 |
-| guided | 13 338 |	13 326 |	13 346 |	13 331 |	13 337 |	13 353 |	13 334 |	13 356 |	13 358|	13 350 |	13 348|	13 334|	13 336|	13 341|	13 422|	13 360 |	13 335 |	13 331 |	13 328 |	13 326 |	13 336 |	13 332 |	13 342 |	13 328 |	13 425 |	13 351 |	13 340 |	13 329 |	13 332 |	13 331 |	13 339 |	13 338 |	13 331 |
-| static | 9 549 |	9 565 |	9 568 |	9 578 |	9 578 |	9 581 |	9 577 |	9 586 |	9 587 |	9 573 |	9 610 |	9 577 |	9 632 |	9 617|	9 592|	9 601 |	9 630 |	9 717 |	9 660 |	9 742 |	9 627 |	9 652 |	9 679 |	9 591 |	10 000	| 9 936 | 10 006 | 10 008|	10 147 |	10 320 |	9 944 |	10 113 |	10 590 |
+To install it on _Fedora_, run:
 
-</details>
+```bash
+sudo dnf install opencv opencv-devel
+```
 
-![Mandelbrot schedule and chunk size comparison](OpenMP/Profiling_OMP/Server_dgxh100/Final/Mandelbrot_chunk_speed_up.jpg)
+## Theory
 
+Fractals are complex structures that exhibit self-similarity across varying scales and are frequently studied in mathematics, computer science, and natural sciences for their intricate beauty and unique properties. Defined as geometric shapes that can be split into parts, each of which is a reduced-scale copy of the whole, fractals can be observed in both natural forms, such as snowflakes, mountain ranges, and coastlines, as well as in artificially generated visuals. Fractal geometry, pioneered by Benoît B. Mandelbrot in the late 20th century, diverges from classical Euclidean geometry by describing irregular, fragmented shapes and surfaces with potentially infinite detail. Fractals have become essential for studying chaotic systems, modeling complex natural phenomena, and for computational generation in various applications, including graphics, image compression, and complex simulations.
 
-### Julia
+### The Mandelbrot Fractal
 
-<details>
+The Mandelbrot set is one of the most famous fractals and serves as an archetype for studying complex dynamical systems. It is defined by iterating the function:
 
-<summary>Click for raw time data</summary>
+$$ f_c(z) = z^2 + c $$
 
-| Schedule |      1 |      2 |     4 |     6 |     8 |    10 |    12 |    14 |    16 |    18 |    20 |    22 |    24 |    26 |    28 |    32 |   36 |   40 |   44 |   48 |   52 |   56 |   60 |   64 |   80 |   96 |  112 |  128 |  144 |  160 |  176 |  192 |  208 |
-|----------|------------|------------|-----------|-----------|-----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|
-| dynamic | 1 593|	1 590|	1 590|	1 588|	1 590|	1 591|	1 595|	1 591|	1 592|	1 592|	1 598|	1 589|	1 593|	1 602|	1 591|	1 608|	1 592|	1 593|	1 610|	1 591|	1 592|	1 591|	1 596|	1 593|	1 593|	1 594|	1 601|	1 597|	1 594|	1 604|	1 613|	1 591|	1 599|
-| guided | 2 407|	2 406|	2 422|	2 406|	2 406|	2 406|	2 407|	2 410|	2 404|	2 406|	2 405|	2 405|	2 457|	2 408|	2 400|	2 406|	2 440|	2 405|	2 407|	2 407|	2 442|	2 408|	2 408|	2 406|	2 406|	2 406|	2 406|	2 406|	2 398|	2 405|	2 408|	2 407|	2 408|
-| static | 1 589|	1 590|	1 591|	1 589|	1 587|	1 588|	1 597|	1 593|	1 648|	1 591|	1 597|	1 597|	1 603|	1 602|	1 593|	1 599|	1 616|	1 591|	1 623|	1 615|	1 603|	1 612|	1 601|	1 624|	1 605|	1 591|	1 687|	1 823|	1 784|	1 953|	1 895|	1 679|	1 619|
+where $z$ and $c$ are complex numbers, and $z$ starts at zero. The set consists of points $c$ in the complex plane for which the sequence of iterated values remains bounded. In other words, if we continuously apply the function $f_c$​ and the result does not tend toward infinity, then $c$ is considered part of the Mandelbrot set.
 
-</details>
+The boundary of the Mandelbrot set exhibits an infinitely complex structure, with self-similar shapes appearing at various scales. The complexity arises because each point requires repeated iterations to determine whether it will escape to infinity or remain bounded, making it ideal for parallel computation. Each pixel in a graphical representation of the Mandelbrot set corresponds to a point in the complex plane, and its color indicates the rate at which the iterated sequence diverges. By computing multiple points simultaneously, parallel computing significantly speeds up the rendering of the Mandelbrot set.
 
-![Julia chunk size comparison](OpenMP/Profiling_OMP/Server_dgxh100/Final/Julia_chunk_speed_up.jpg)
+### The Julia Fractal
 
+Julia sets are closely related to the Mandelbrot set and are also defined by iterating complex functions. Unlike the Mandelbrot set, which iterates with different values of $c$, a Julia set fixes a particular value of $c$ and iterates:
 
-### Tricorn
+$$ f(z) = z^2 + c $$
 
-<details>
+for each point $z$ in the complex plane. The structure of the resulting Julia set depends on the specific choice of $c$. If $c$ lies within the Mandelbrot set, the corresponding Julia set is a connected fractal. If $c$ is outside the Mandelbrot set, the Julia set is typically a disconnected "dust" of points.
 
-<summary>Click for raw time data</summary>
+Julia sets are particularly interesting because they exhibit a diverse range of structures based on the initial value of $c$. Like the Mandelbrot set, they display self-similarity and intricate boundary regions. The computational requirements for Julia sets are similar to those of the Mandelbrot set, making them well-suited for parallel computation. By fixing $c$ and iterating through different values of $z$, each point can be independently computed, allowing for parallel rendering across a grid.
 
-| Schedule |      1 |      2 |     4 |     6 |     8 |    10 |    12 |    14 |    16 |    18 |    20 |    22 |    24 |    26 |    28 |    32 |   36 |   40 |   44 |   48 |   52 |   56 |   60 |   64 |   80 |   96 |  112 |  128 |  144 |  160 |  176 |  192 |  208 |
-|----------|------------|------------|-----------|-----------|-----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|
-| dynamic | 2 795|	2 798|	2 797|	2 799|	2 798|	2 810|	2 804|	2 800|	2 798|	2 801|	2 799|	2 801|	2 800|	2 812|	2 812|	2 801|	2 795|	2 798|	2 796|	2 808|	2 802|	2 802|	2 807|	2 802|	2 806|	2 836|	2 845|	2 841|	2 838|	3 317|	3 427|	3 690|	3 833|
-| guided | 5 591|	5 593|	5 574|	5 581|	5 573|	5 569|	5 576|	5 571|	5 581|	5 572|	5 576|	5 279|	5 592|	5 571|	5 272|	5 572|	5 573|	5 592|	5 589|	5 574|	5 572|	5 576|	5 575|	5 572|	5 574|	5 571|	5 571|	5 575|	5 591|	5 574|	5 575|	5 572|	5 590|
-| static | 2 800|	2 800|	2 818|	2 808|	2 805|	2 800|	2 805|	2 807|	2 805|	2 859|	2 798|	 2 821|	2 826|	2 814|	2 849|	2 834|	2 829|	2 816|	2 821|	2 864|	2 891|	2 870|	2 960|	2 955|	3 045|	3 267|	3 351|	3 484|	3 506|	3 941|	3 837|	4 119|	4 369|
+### The Tricorn Fractal
 
-</details>
+The Tricorn fractal, also known as the Mandelbar set, is a variation of the Mandelbrot set. It is generated by iterating the function:
 
-![Tricorn chunk size comparison](OpenMP/Profiling_OMP/Server_dgxh100/Final/Tricorn_chunk_speed_up.jpg)
+$$ f_c(z) = \overline{z}^2 + c $$
 
+where $\overline{z}$ is the complex conjugate of $z$. This small change in the function introduces a degree of reflection symmetry in the fractal, resulting in a three-pronged structure that gives the Tricorn its name. Like the Mandelbrot set, the Tricorn fractal consists of points in the complex plane where the iteration remains bounded.
 
-### Cosine
+The Tricorn is noted for its unusual structure and complex boundary, which is not seen in other traditional fractals. Its threefold symmetry makes it visually distinct and interesting to study, and it also benefits from parallel computing techniques for efficient rendering. Each point in the Tricorn fractal can be computed independently, so it is possible to parallelize the calculations across multiple processors or threads.
 
-<details>
+### The Cosine Fractal
 
-<summary>Click for raw time data</summary>
+Cosine fractals are created by iterating functions involving trigonometric transformations, such as:
 
-| Schedule |      1 |      2 |     4 |     6 |     8 |    10 |    12 |    14 |    16 |    18 |    20 |    22 |    24 |    26 |    28 |    32 |   36 |   40 |   44 |   48 |   52 |   56 |   60 |   64 |   80 |   96 |  112 |  128 |  144 |  160 |  176 |  192 |  208 |
-|----------|------------|------------|-----------|-----------|-----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|
-| dynamic | 250 952|	250 422|	250 692|	250 377|	250 430|	250 696|	250 388|	250 356|	250 663|	250 462|	250 898|	250 427|	250 384|	250 548|	250 441|	250 924|	250 497|	250 427|	250 660|	250 844|	250 809|	250 508|	250 759|	251 055|	250 693|	251 854|	253 054|	251 379|	252 488|	251 913|	253 845|	255 274|	251 305|
-| guided | 295 270|	295 490|	295 292|	295 395|	295 319|	295 301|	295 425|	295 290|	295 767|	295 320|	295 443|	295 273|	295 390|	296 454|	295 271|	295 477|	295 445|	295 287|	295 262|	295 274|	295 325|	295 305|	295 270|	295 394|	295 293|	297 213|	295 498|	295 272|	295 274|	295 269|	295 512|	295 312|	295 719|
-| static | 250 708|	250 590|	250 502|	250 725|	251 646|	252 398|	250 845|	251 079|	250 771|	250 632|	250 503|	251 749|	250 929|	252 228|	251 206|	250 634|	251 185|	251 275|	250 934|	251 518|	253 448|	256 264|	253 440|	253 291|	251 583|	252 719|	256 021|	253 549|	253 365|	252 090|	252 709|	256 371|	256 287|
+$$ f_c(z) = \cos(z) + c $$
 
-</details>
+These fractals differ from the polynomial-based Mandelbrot and Julia sets, as the cosine function introduces periodicity and distinct structural characteristics. Cosine fractals can produce highly intricate, organic patterns that diverge significantly from the typical symmetry seen in polynomial fractals.
 
-![Cosine chunk size comparison](OpenMP/Profiling_OMP/Server_dgxh100/Final/Cosine_chunk_speed_up.jpg)
+One notable feature of cosine fractals is the influence of the periodic nature of the cosine function, which introduces repeating patterns within the fractal structure. The generation of these fractals is computationally intensive, requiring high iteration counts to resolve the details, especially near the boundaries of the set. Due to the nature of the cosine function, cosine fractals often exhibit rapidly changing structures that are computationally challenging to calculate, making them excellent candidates for parallelization.
 
+## Methodology
 
-- The chunk size and schedule that was chosen was dynamic with chunk size 6 due to having the best overall performance according to the data
+The generation of each fractal described involves repeated iteration of a mathematical function over a grid of complex values, where each point is calculated independently. This property aligns well with parallel computation, where independent calculations can be distributed across multiple processors or cores, significantly reducing computation time. Typically, fractal generation algorithms divide the complex plane into small, discrete pixels, with each pixel corresponding to a specific complex number. The chosen fractal function is applied iteratively, and the iteration count is tracked to determine the color or shading of each pixel in the fractal image. Points are color-coded based on their escape rate, providing an intuitive visualization of the fractal's structure.
 
-## Number of threads analysis
+In a parallel computing context, each point in the fractal can be processed concurrently, making it feasible to generate high-resolution fractal images in a fraction of the time required by a single-threaded computation. Moreover, fractals like the Mandelbrot and Julia sets often require deep iteration depths to capture the subtle boundary details, which would be prohibitively slow without parallel processing.
 
-- All these results were obtained from the grid computer dgxh100 on a 6000×4000 images for 2000 iterations with chunk size 6
+## Examples
 
 ### Mandelbrot
 
-<details>
-
-<summary>Click for raw time data</summary>
-
-|      1|	2|	4|	6|	8|	10|	12|	14|	16|	18|	20|	22|	24|	26|	28|	32|	36|	40|	44|	48|	52|	56|	60|	64|	80|	96|	112|	128|	144|	160|	176|	192|	208|	224|
-|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|
-|	38 113|	19 089|	9 564|	6 385|	4 804|	3 848|	3 214|	2 763|	2 425|	2 160|	1 951|	1 776|	1 633|	1 526|	1 407|	1 251|	1 118|	1 001|	918|	877|	837|	775|	722|	724|	633|	561|	526|	490|	466|	445|	426|	404|	400|	397|
-
-</details>
-
-![Mandelbrot Execution time](OpenMP/Profiling_OMP/Server_dgxh100/Final/Mandelbrot_threads_time.jpg)
-
+![Mandelbrot](img/TBB-Mandelbrot-8000×6000-5000.png)
 
 ### Julia
 
-<details>
-
-<summary>Click for raw time data</summary>
-
-|      1|	2|	4|	6|	8|	10|	12|	14|	16|	18|	20|	22|	24|	26|	28|	32|	36|	40|	44|	48|	52|	56|	60|	64|	80|	96|	112|	128|	144|	160|	176|	192|	208|	224|
-|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|
-|	6 197|	3 128|	1 595|	1 068|	814|	664|	557|	483|	428|	391|	353|	325|	301|	282|	265|	236|	216|	199|	184|	177|	167|	159|	152|	146|	129|	114|	131|	134|	128|	128|	132|	132|	133|	137|
-
-</details>
-
-![Julia Execution time](OpenMP/Profiling_OMP/Server_dgxh100/Final/Julia_threads_time.jpg)
-
+![Julia](img/TBB-Julia-8000×6000-5000.png)
 
 ### Tricorn
 
-<details>
-
-<summary>Click for raw time data</summary>
-
-|      1|	2|	4|	6|	8|	10|	12|	14|	16|	18|	20|	22|	24|	26|	28|	32|	36|	40|	44|	48|	52|	56|	60|	64|	80|	96|	112|	128|	144|	160|	176|	192|	208|	224|
-|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|
-|	11 039|	5 531|	2 797|	1 883|	1 421|	1 142|	957|	827|	729|	654|	594|	545|	503|	468|	438|	389|	352|	322|	299|	281|	272|	259|	239|	235|	216|	228|	232|	226|	227|	223|	227|	233|	235|	222|
-
-</details>
-
-![Tricorn Execution time](OpenMP/Profiling_OMP/Server_dgxh100/Final/Tricorn_threads_time.jpg)
-
+![Tricorn](img/TBB-Tricorn-8000×6000-5000.png)
 
 ### Cosine
 
-<details>
-
-<summary>Click for raw time data</summary>
-
-|      1|	2|	4|	6|	8|	10|	12|	14|	16|	18|	20|	22|	24|	26|	28|	32|	36|	40|	44|	48|	52|	56|	60|	64|	80|	96|	112|	128|	144|	160|	176|	192|	208|	224|
-|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|
-|	1 001 115|	500 815|	250 781|	167 075|	125 264|	100 245|	83 551|	71 637|	62 698|	55 801|	50 216|	45 707|	41 943|	38 650|	35 919|	31 456|	28 023|	25 344|	23 000|	21 237|	20 191|	19 668|	18 586|	17 709|	15 658|	13 535|	11 975|	11 371|	10 611|	10 018|	9 497|	9 041|	8 899|	9 081|
-</details>
-
-![Cosine Execution time](OpenMP/Profiling_OMP/Server_dgxh100/Final/Cosine_threads_time.jpg)
-
-### Overall Speedup
-
-![](OpenMP/Profiling_OMP/Server_dgxh100/Final/Speed_up_threads.jpg)
+![Cosine](img/TBB-Cosine-8000×6000-5000.png)
