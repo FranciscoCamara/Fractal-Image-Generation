@@ -1,5 +1,10 @@
 # Fractal Image Generation
 
+This project was developed during my **Erasmus exchange program** as part of a course on Distributed and High Performance Computing.
+
+It implements various algorithms for generating **fractal images** (e.g. Mandelbrot, Julia sets) using multiple approaches (serial, OpenMP, CUDA, TBB, pthreads).  
+It demonstrates how fractal computations, often involving complex-plane iteration, lend themselves well to parallelization, and lets you compare performance across these different methods.
+
 ## Team Members
 
 - [Cristian Cristea](@cristian.cristea) (TBB)
